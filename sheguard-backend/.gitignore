@@ -1,0 +1,10 @@
+# Ignore image files
+*.jpg
+*.jpeg
+*.png
+*.gif
+*.bmp
+*.tiff
+
+sheguard-backend/service-account-key.json
+sheguard-backend/firebase-key.json
