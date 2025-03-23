@@ -3,8 +3,8 @@ import Navbar from './Navbar';
 import Upload from './Upload';
 import Footer from './Footer';
 import { CssBaseline, ThemeProvider, createTheme } from '@mui/material';
+import './App.css';
 
-// Define a theme inspired by Dark Design
 const darkDesignTheme = createTheme({
   palette: {
     mode: 'dark',
