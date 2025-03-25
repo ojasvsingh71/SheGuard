@@ -1,0 +1,6 @@
+[phases.setup]
+nixPkgs = ["python312", "python312Packages.setuptools", "python312Packages.wheel"]
+cmds = ["python -m ensurepip", "python -m pip install --upgrade setuptools wheel"]
+
+[phases.build]
+cmds = ["python -m venv /opt/venv", ". /opt/venv/bin/activate", "pip install -r requirements.txt"]
