@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { Button, Container, Typography, LinearProgress, Box, Paper } from '@mui/material';
 import CloudUploadIcon from '@mui/icons-material/CloudUpload';
@@ -52,6 +52,17 @@ function Upload() {
   const [message, setMessage] = useState('');
   const [prediction, setPrediction] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [apiData, setApiData] = useState(null);
+
+  useEffect(() => {
+    axios.get("https://sheguard.onrender.com/api")
+      .then(response => {
+        setApiData(response.data);
+      })
+      .catch(error => {
+        console.error("There was an error fetching the data!", error);
+      });
+  }, []);
 
   const handleUpload = async () => {
     if (!file) {
@@ -164,6 +175,12 @@ function Upload() {
                 </Typography>
               </Paper>
             </AnimatedBox>
+          )}
+
+          {apiData && (
+            <Typography variant="body1" style={{ marginTop: '20px', color: '#b3b3b3' }}>
+              API Data: {JSON.stringify(apiData, null, 2)}
+            </Typography>
           )}
         </Overlay>
       </Container>
