@@ -1,11 +1,15 @@
 [phases.setup]
-nixPkgs = ["python312", "gcc"]
+nixPkgs = ["python3", "gcc"]
 
 [phases.install]
 cmds = [
-  "pip install --upgrade pip setuptools wheel",
+  "python -m venv /opt/venv",
+  ". /opt/venv/bin/activate",
   "pip install -r requirements.txt"
 ]
+
+[phases.build]
+cmds = []
 
 [start]
 cmd = "gunicorn -w 4 -b 0.0.0.0:$PORT app:app"
