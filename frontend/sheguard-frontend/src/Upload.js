@@ -55,7 +55,7 @@ function Upload() {
   const [apiData, setApiData] = useState(null);
 
   useEffect(() => {
-    axios.get("https://sheguard.onrender.com/api")
+    axios.get("https://sheguard.onrender.com")
       .then(response => {
         setApiData(response.data);
       })
