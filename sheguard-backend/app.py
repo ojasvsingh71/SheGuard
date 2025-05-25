@@ -14,10 +14,6 @@ app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 if not os.path.exists(UPLOAD_FOLDER):
     os.makedirs(UPLOAD_FOLDER)
 
-# Load the pre-trained deepfake detection model from Hugging Face
-model = ViTForImageClassification.from_pretrained("prithivMLmods/Deep-Fake-Detector-v2-Model")
-processor = ViTImageProcessor.from_pretrained("prithivMLmods/Deep-Fake-Detector-v2-Model")
-
 @app.route('/')
 def home():
     return "SheGuard Backend is running!"
@@ -40,6 +36,10 @@ def upload_file():
 
 @app.route('/analyze', methods=['POST'])
 def analyze():
+    # Load the pre-trained deepfake detection model from Hugging Face
+    model = ViTForImageClassification.from_pretrained("prithivMLmods/Deep-Fake-Detector-v2-Model")
+    processor = ViTImageProcessor.from_pretrained("prithivMLmods/Deep-Fake-Detector-v2-Model")
+
     file_path = request.json.get('file_path')
     if not file_path:
         print("File path is missing.")
