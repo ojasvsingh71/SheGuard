@@ -79,7 +79,7 @@ function Upload() {
 
     try {
       // Upload file
-      const uploadResponse = await axios.post('http://127.0.0.1:5000/upload', formData, {
+      const uploadResponse = await axios.post('https://sheguard.onrender.com/upload', formData, {
         headers: {
           'Content-Type': 'multipart/form-data',
         },
@@ -87,7 +87,7 @@ function Upload() {
       setMessage(uploadResponse.data.message);
 
       // Analyze file
-      const analysisResponse = await axios.post('http://127.0.0.1:5000/analyze', {
+      const analysisResponse = await axios.post('https://sheguard.onrender.com/analyze', {
         file_path: uploadResponse.data.file_path,
       });
       setPrediction(analysisResponse.data.prediction);
