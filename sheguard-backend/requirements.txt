@@ -5,7 +5,7 @@ click==8.1.8
 colorama==0.4.6
 filelock==3.17.0
 Flask==2.3.2
-flask-cors==5.0.1
+Flask-Cors==5.0.1
 fsspec==2025.2.0
 gunicorn==23.0.0
 huggingface-hub==0.29.1

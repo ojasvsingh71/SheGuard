@@ -59,13 +59,21 @@ function Upload() {
   const [error, setError] = useState(null);
 
   useEffect(() => {
-    axios.get("https://sheguard.onrender.com")
-      .then(response => {
+    // Test backend connection with better error handling
+    const testBackend = async () => {
+      try {
+        const response = await axios.get("https://sheguard.onrender.com/health", {
+          timeout: 10000 // 10 second timeout
+        });
         setApiData(response.data);
-      })
-      .catch(error => {
-        console.error("There was an error fetching the data!", error);
-      });
+        console.log("Backend connected successfully:", response.data);
+      } catch (error) {
+        console.error("Backend connection failed:", error);
+        setError("Backend service is currently unavailable. Please try again later.");
+      }
+    };
+    
+    testBackend();
   }, []);
 
   const handleUpload = async () => {
@@ -88,16 +96,25 @@ function Upload() {
         headers: {
           'Content-Type': 'multipart/form-data',
         },
+        timeout: 30000 // 30 second timeout for file upload
       });
       setMessage(uploadResponse.data.message);
 
       // Analyze file
       const analysisResponse = await axios.post('https://sheguard.onrender.com/analyze', {
         file_path: uploadResponse.data.file_path,
+      }, {
+        timeout: 60000 // 60 second timeout for analysis
       });
       setAnalysisResult(analysisResponse.data);
     } catch (error) {
-      setError('Error uploading or analyzing file. Please try again.');
+      if (error.code === 'ECONNABORTED') {
+        setError('Request timed out. The backend service might be starting up. Please try again in a few minutes.');
+      } else if (error.response?.status === 502 || error.response?.status === 503) {
+        setError('Backend service is starting up. Please wait a few minutes and try again.');
+      } else {
+        setError(`Error: ${error.message}. Please try again.`);
+      }
       console.error(error);
     } finally {
       setIsLoading(false);

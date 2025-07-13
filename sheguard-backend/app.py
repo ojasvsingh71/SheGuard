@@ -1,4 +1,5 @@
 from flask import Flask, request, jsonify
+from flask import make_response
 import os
 import cv2
 import numpy as np
@@ -6,11 +7,20 @@ from PIL import Image
 import torch
 import torch.nn as nn
 import torchvision.transforms as transforms
-from flask_cors import CORS
+from flask_cors import CORS, cross_origin
 import logging
 
 app = Flask(__name__)
-CORS(app)
+
+# Configure CORS properly
+CORS(app, resources={
+    r"/*": {
+        "origins": ["*"],
+        "methods": ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+        "allow_headers": ["Content-Type", "Authorization"]
+    }
+})
+
 UPLOAD_FOLDER = 'uploads'
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 
@@ -238,7 +248,17 @@ class DeepfakeDetectionService:
 # Initialize the detection service
 detector = DeepfakeDetectionService()
 
+@app.before_request
+def handle_preflight():
+    if request.method == "OPTIONS":
+        response = make_response()
+        response.headers.add("Access-Control-Allow-Origin", "*")
+        response.headers.add('Access-Control-Allow-Headers', "*")
+        response.headers.add('Access-Control-Allow-Methods', "*")
+        return response
+
 @app.route('/')
+@cross_origin()
 def home():
     return jsonify({
         "message": "SheGuard Backend is running!",
@@ -247,6 +267,7 @@ def home():
     })
 
 @app.route('/upload', methods=['POST'])
+@cross_origin()
 def upload_file():
     if 'file' not in request.files:
         logger.error("No file part in the request.")
@@ -279,6 +300,7 @@ def upload_file():
         return jsonify({"error": "Failed to save file"}), 500
 
 @app.route('/analyze', methods=['POST'])
+@cross_origin()
 def analyze():
     file_path = request.json.get('file_path')
     if not file_path:
@@ -305,6 +327,7 @@ def analyze():
         }), 500
 
 @app.route('/health', methods=['GET'])
+@cross_origin()
 def health_check():
     return jsonify({
         "status": "healthy",
