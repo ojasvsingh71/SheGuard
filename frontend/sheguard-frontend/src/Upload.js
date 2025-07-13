@@ -1,7 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
-import { Button, Container, Typography, LinearProgress, Box, Paper } from '@mui/material';
+import { Button, Container, Typography, LinearProgress, Box, Paper, Chip, Alert } from '@mui/material';
 import CloudUploadIcon from '@mui/icons-material/CloudUpload';
+import SecurityIcon from '@mui/icons-material/Security';
+import WarningIcon from '@mui/icons-material/Warning';
+import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import { motion } from 'framer-motion';
 import styled from 'styled-components';
 
@@ -50,9 +53,10 @@ const AnimatedBox = motion(Box);
 function Upload() {
   const [file, setFile] = useState(null);
   const [message, setMessage] = useState('');
-  const [prediction, setPrediction] = useState(null);
+  const [analysisResult, setAnalysisResult] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
   const [apiData, setApiData] = useState(null);
+  const [error, setError] = useState(null);
 
   useEffect(() => {
     axios.get("https://sheguard.onrender.com")
@@ -75,7 +79,8 @@ function Upload() {
 
     setIsLoading(true);
     setMessage('');
-    setPrediction(null);
+    setAnalysisResult(null);
+    setError(null);
 
     try {
       // Upload file
@@ -90,13 +95,28 @@ function Upload() {
       const analysisResponse = await axios.post('https://sheguard.onrender.com/analyze', {
         file_path: uploadResponse.data.file_path,
       });
-      setPrediction(analysisResponse.data.prediction);
+      setAnalysisResult(analysisResponse.data);
     } catch (error) {
-      setMessage('Error uploading file.');
+      setError('Error uploading or analyzing file. Please try again.');
       console.error(error);
     } finally {
       setIsLoading(false);
     }
+  };
+
+  const getRiskColor = (riskLevel) => {
+    switch (riskLevel) {
+      case 'LOW': return '#4caf50';
+      case 'MEDIUM': return '#ff9800';
+      case 'HIGH': return '#f44336';
+      default: return '#757575';
+    }
+  };
+
+  const getPredictionIcon = (prediction) => {
+    if (prediction === 'REAL') return <CheckCircleIcon style={{ color: '#4caf50' }} />;
+    if (prediction === 'FAKE') return <WarningIcon style={{ color: '#f44336' }} />;
+    return <SecurityIcon style={{ color: '#757575' }} />;
   };
 
   return (
@@ -159,7 +179,13 @@ function Upload() {
             </Typography>
           )}
 
-          {prediction && (
+          {error && (
+            <Alert severity="error" style={{ marginTop: '20px' }}>
+              {error}
+            </Alert>
+          )}
+
+          {analysisResult && (
             <AnimatedBox
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
@@ -168,10 +194,56 @@ function Upload() {
             >
               <Paper elevation={2} style={{ padding: '20px', background: 'rgba(255, 255, 255, 0.1)' }}>
                 <Typography variant="h6" style={{ color: '#00ffcc' }}>
-                  Analysis Results
+                  🔍 Analysis Results
                 </Typography>
-                <Typography variant="body1" style={{ color: '#b3b3b3' }}>
-                  Prediction: {prediction}
+                
+                <Box style={{ display: 'flex', alignItems: 'center', marginBottom: '10px' }}>
+                  {getPredictionIcon(analysisResult.prediction)}
+                  <Typography variant="h6" style={{ marginLeft: '10px', color: '#ffffff' }}>
+                    {analysisResult.prediction}
+                  </Typography>
+                  <Chip 
+                    label={`${(analysisResult.confidence * 100).toFixed(1)}% confidence`}
+                    style={{ marginLeft: '10px', backgroundColor: '#00ffcc', color: '#000' }}
+                    size="small"
+                  />
+                </Box>
+
+                <Box style={{ marginBottom: '15px' }}>
+                  <Typography variant="body2" style={{ color: '#b3b3b3', marginBottom: '5px' }}>
+                    Risk Level:
+                  </Typography>
+                  <Chip 
+                    label={analysisResult.risk_level}
+                    style={{ 
+                      backgroundColor: getRiskColor(analysisResult.risk_level),
+                      color: '#ffffff',
+                      fontWeight: 'bold'
+                    }}
+                  />
+                </Box>
+
+                {analysisResult.has_faces && (
+                  <Typography variant="body2" style={{ color: '#b3b3b3', marginBottom: '5px' }}>
+                    ✅ {analysisResult.face_count} face(s) detected
+                  </Typography>
+                )}
+
+                {analysisResult.risk_factors && analysisResult.risk_factors.length > 0 && (
+                  <Box style={{ marginTop: '10px' }}>
+                    <Typography variant="body2" style={{ color: '#ff9800', marginBottom: '5px' }}>
+                      ⚠️ Risk Factors:
+                    </Typography>
+                    {analysisResult.risk_factors.map((factor, index) => (
+                      <Typography key={index} variant="body2" style={{ color: '#b3b3b3', marginLeft: '10px' }}>
+                        • {factor}
+                      </Typography>
+                    ))}
+                  </Box>
+                )}
+
+                <Typography variant="caption" style={{ color: '#757575', marginTop: '10px', display: 'block' }}>
+                  Model: {analysisResult.model_used}
                 </Typography>
               </Paper>
             </AnimatedBox>
