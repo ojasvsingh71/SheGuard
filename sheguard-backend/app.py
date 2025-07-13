@@ -4,11 +4,10 @@ import os
 import cv2
 import numpy as np
 from PIL import Image
-import torch
-import torch.nn as nn
-import torchvision.transforms as transforms
-from flask_cors import CORS, cross_origin
 import logging
+from flask_cors import CORS, cross_origin
+import base64
+import io
 
 app = Flask(__name__)
 
@@ -32,207 +31,222 @@ logger = logging.getLogger(__name__)
 if not os.path.exists(UPLOAD_FOLDER):
     os.makedirs(UPLOAD_FOLDER)
 
-class SimpleDeepfakeDetector(nn.Module):
-    """Simple CNN-based deepfake detector"""
+class LightweightDeepfakeDetector:
+    """Lightweight deepfake detector using traditional computer vision techniques"""
+    
     def __init__(self):
-        super(SimpleDeepfakeDetector, self).__init__()
-        self.features = nn.Sequential(
-            nn.Conv2d(3, 32, 3, padding=1),
-            nn.ReLU(),
-            nn.MaxPool2d(2),
-            nn.Conv2d(32, 64, 3, padding=1),
-            nn.ReLU(),
-            nn.MaxPool2d(2),
-            nn.Conv2d(64, 128, 3, padding=1),
-            nn.ReLU(),
-            nn.MaxPool2d(2),
-            nn.AdaptiveAvgPool2d((4, 4))
-        )
-        self.classifier = nn.Sequential(
-            nn.Dropout(0.5),
-            nn.Linear(128 * 4 * 4, 256),
-            nn.ReLU(),
-            nn.Dropout(0.5),
-            nn.Linear(256, 2)  # Real vs Fake
-        )
+        self.face_cascade = None
+        self._load_face_detector()
     
-    def forward(self, x):
-        x = self.features(x)
-        x = x.view(x.size(0), -1)
-        x = self.classifier(x)
-        return x
-
-class DeepfakeDetectionService:
-    def __init__(self):
-        self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-        self.model = None
-        self.transform = transforms.Compose([
-            transforms.Resize((224, 224)),
-            transforms.ToTensor(),
-            transforms.Normalize(mean=[0.485, 0.456, 0.406], 
-                               std=[0.229, 0.224, 0.225])
-        ])
-        self._load_model()
-    
-    def _load_model(self):
-        """Load the deepfake detection model with fallback options"""
+    def _load_face_detector(self):
+        """Load OpenCV face detector"""
         try:
-            # Try to load a pre-trained model first
-            self._load_pretrained_model()
+            self.face_cascade = cv2.CascadeClassifier(cv2.data.haarcascades + 'haarcascade_frontalface_default.xml')
+            logger.info("Face detector loaded successfully")
         except Exception as e:
-            logger.warning(f"Failed to load pre-trained model: {e}")
-            # Fallback to simple model
-            self._load_simple_model()
-    
-    def _load_pretrained_model(self):
-        """Try to load a pre-trained model from Hugging Face"""
-        try:
-            from transformers import AutoImageProcessor, AutoModelForImageClassification
-            
-            # Try a different, more reliable model
-            model_name = "dima806/deepfake_vs_real_image_detection"
-            self.processor = AutoImageProcessor.from_pretrained(model_name)
-            self.hf_model = AutoModelForImageClassification.from_pretrained(model_name)
-            self.model_type = "huggingface"
-            logger.info("Successfully loaded Hugging Face model")
-            
-        except Exception as e:
-            logger.warning(f"Hugging Face model failed: {e}")
-            raise e
-    
-    def _load_simple_model(self):
-        """Load a simple CNN model as fallback"""
-        self.model = SimpleDeepfakeDetector()
-        self.model.eval()
-        self.model_type = "simple"
-        logger.info("Loaded simple CNN model as fallback")
+            logger.error(f"Failed to load face detector: {e}")
     
     def detect_faces(self, image_path):
-        """Detect faces in the image using OpenCV"""
+        """Detect faces in the image"""
         try:
-            # Load the image
             image = cv2.imread(image_path)
+            if image is None:
+                return False, 0, []
+            
             gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+            faces = self.face_cascade.detectMultiScale(gray, 1.1, 4)
             
-            # Load face cascade
-            face_cascade = cv2.CascadeClassifier(cv2.data.haarcascades + 'haarcascade_frontalface_default.xml')
-            
-            # Detect faces
-            faces = face_cascade.detectMultiScale(gray, 1.1, 4)
-            
-            return len(faces) > 0, len(faces)
+            return len(faces) > 0, len(faces), faces.tolist()
         except Exception as e:
             logger.error(f"Face detection error: {e}")
-            return False, 0
+            return False, 0, []
     
     def analyze_image_quality(self, image_path):
-        """Analyze image quality metrics that might indicate manipulation"""
+        """Analyze image quality metrics"""
         try:
             image = cv2.imread(image_path)
+            if image is None:
+                return {'error': 'Could not load image'}
+            
             gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
             
             # Calculate Laplacian variance (blur detection)
             laplacian_var = cv2.Laplacian(gray, cv2.CV_64F).var()
             
-            # Calculate image entropy
-            hist = cv2.calcHist([gray], [0], None, [256], [0, 256])
-            hist = hist.flatten()
-            hist = hist[hist > 0]
-            entropy = -np.sum(hist * np.log2(hist + 1e-7))
+            # Calculate image statistics
+            mean_brightness = np.mean(gray)
+            std_brightness = np.std(gray)
+            
+            # Edge detection
+            edges = cv2.Canny(gray, 50, 150)
+            edge_density = np.sum(edges > 0) / (edges.shape[0] * edges.shape[1])
             
             return {
                 'blur_score': float(laplacian_var),
-                'entropy': float(entropy),
-                'is_blurry': laplacian_var < 100
+                'mean_brightness': float(mean_brightness),
+                'brightness_std': float(std_brightness),
+                'edge_density': float(edge_density),
+                'is_blurry': laplacian_var < 100,
+                'is_dark': mean_brightness < 50,
+                'is_bright': mean_brightness > 200,
+                'low_contrast': std_brightness < 30
             }
         except Exception as e:
             logger.error(f"Quality analysis error: {e}")
-            return {'blur_score': 0, 'entropy': 0, 'is_blurry': False}
+            return {'error': str(e)}
     
-    def predict_with_hf_model(self, image_path):
-        """Predict using Hugging Face model"""
+    def detect_compression_artifacts(self, image_path):
+        """Detect JPEG compression artifacts that might indicate manipulation"""
         try:
-            image = Image.open(image_path).convert("RGB")
-            inputs = self.processor(images=image, return_tensors="pt")
+            image = cv2.imread(image_path)
+            if image is None:
+                return {'error': 'Could not load image'}
             
-            with torch.no_grad():
-                outputs = self.hf_model(**inputs)
-                logits = outputs.logits
-                probabilities = torch.nn.functional.softmax(logits, dim=-1)
-                predicted_class = torch.argmax(logits, dim=1).item()
+            gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
             
-            # Get confidence score
-            confidence = float(probabilities[0][predicted_class])
+            # Apply DCT to detect blocking artifacts
+            h, w = gray.shape
+            block_size = 8
+            artifact_score = 0
             
-            # Map prediction to label
-            labels = self.hf_model.config.id2label
-            prediction = labels[predicted_class]
+            for i in range(0, h - block_size, block_size):
+                for j in range(0, w - block_size, block_size):
+                    block = gray[i:i+block_size, j:j+block_size].astype(np.float32)
+                    dct_block = cv2.dct(block)
+                    # High frequency components indicate artifacts
+                    high_freq = np.sum(np.abs(dct_block[4:, 4:]))
+                    artifact_score += high_freq
             
-            return prediction, confidence
+            artifact_score /= ((h // block_size) * (w // block_size))
+            
+            return {
+                'compression_score': float(artifact_score),
+                'has_artifacts': artifact_score > 1000
+            }
+        except Exception as e:
+            logger.error(f"Compression analysis error: {e}")
+            return {'error': str(e)}
+    
+    def heuristic_deepfake_detection(self, image_path, faces, quality_metrics):
+        """Use heuristic rules to detect potential deepfakes"""
+        try:
+            # Initialize suspicion score
+            suspicion_score = 0.0
+            reasons = []
+            
+            # Face-related checks
+            if len(faces) == 0:
+                suspicion_score += 0.3
+                reasons.append("No faces detected")
+            elif len(faces) > 3:
+                suspicion_score += 0.2
+                reasons.append("Multiple faces detected")
+            
+            # Quality checks
+            if quality_metrics.get('is_blurry', False):
+                suspicion_score += 0.2
+                reasons.append("Image appears blurry")
+            
+            if quality_metrics.get('low_contrast', False):
+                suspicion_score += 0.1
+                reasons.append("Low contrast image")
+            
+            # Brightness checks
+            if quality_metrics.get('is_dark', False) or quality_metrics.get('is_bright', False):
+                suspicion_score += 0.1
+                reasons.append("Unusual brightness levels")
+            
+            # Edge density check
+            edge_density = quality_metrics.get('edge_density', 0)
+            if edge_density < 0.05:  # Very few edges might indicate smoothing
+                suspicion_score += 0.2
+                reasons.append("Unusually smooth image")
+            elif edge_density > 0.3:  # Too many edges might indicate artifacts
+                suspicion_score += 0.1
+                reasons.append("High edge density")
+            
+            # Face size consistency (if multiple faces)
+            if len(faces) > 1:
+                face_areas = [(w * h) for (x, y, w, h) in faces]
+                if len(set([int(area/1000) for area in face_areas])) > 1:  # Different sizes
+                    suspicion_score += 0.15
+                    reasons.append("Inconsistent face sizes")
+            
+            # Determine prediction based on suspicion score
+            if suspicion_score >= 0.6:
+                prediction = "FAKE"
+                confidence = min(0.9, 0.5 + suspicion_score)
+            elif suspicion_score >= 0.3:
+                prediction = "SUSPICIOUS"
+                confidence = 0.6
+            else:
+                prediction = "REAL"
+                confidence = min(0.9, 0.9 - suspicion_score)
+            
+            return {
+                'prediction': prediction,
+                'confidence': confidence,
+                'suspicion_score': suspicion_score,
+                'reasons': reasons
+            }
             
         except Exception as e:
-            logger.error(f"HF model prediction error: {e}")
-            raise e
-    
-    def predict_with_simple_model(self, image_path):
-        """Predict using simple CNN model (fallback)"""
-        try:
-            image = Image.open(image_path).convert("RGB")
-            image_tensor = self.transform(image).unsqueeze(0)
-            
-            with torch.no_grad():
-                outputs = self.model(image_tensor)
-                probabilities = torch.nn.functional.softmax(outputs, dim=1)
-                predicted_class = torch.argmax(outputs, dim=1).item()
-            
-            confidence = float(probabilities[0][predicted_class])
-            prediction = "REAL" if predicted_class == 0 else "FAKE"
-            
-            return prediction, confidence
-            
-        except Exception as e:
-            logger.error(f"Simple model prediction error: {e}")
-            return "UNKNOWN", 0.5
+            logger.error(f"Heuristic detection error: {e}")
+            return {
+                'prediction': 'ERROR',
+                'confidence': 0.0,
+                'error': str(e)
+            }
     
     def analyze_image(self, image_path):
         """Main analysis function"""
         try:
-            # Check if faces are present
-            has_faces, face_count = self.detect_faces(image_path)
+            # Detect faces
+            has_faces, face_count, faces = self.detect_faces(image_path)
             
             # Analyze image quality
             quality_metrics = self.analyze_image_quality(image_path)
             
-            # Get deepfake prediction
-            if self.model_type == "huggingface":
-                try:
-                    prediction, confidence = self.predict_with_hf_model(image_path)
-                except:
-                    prediction, confidence = self.predict_with_simple_model(image_path)
-            else:
-                prediction, confidence = self.predict_with_simple_model(image_path)
+            # Detect compression artifacts
+            compression_analysis = self.detect_compression_artifacts(image_path)
+            
+            # Heuristic deepfake detection
+            detection_result = self.heuristic_deepfake_detection(image_path, faces, quality_metrics)
             
             # Combine all analysis
             result = {
-                'prediction': prediction,
-                'confidence': confidence,
+                'prediction': detection_result['prediction'],
+                'confidence': detection_result['confidence'],
                 'has_faces': has_faces,
                 'face_count': face_count,
+                'faces': faces,
                 'quality_metrics': quality_metrics,
-                'model_used': self.model_type
+                'compression_analysis': compression_analysis,
+                'detection_reasons': detection_result.get('reasons', []),
+                'suspicion_score': detection_result.get('suspicion_score', 0),
+                'model_used': 'heuristic_cv'
             }
             
             # Add risk assessment
             risk_factors = []
             if not has_faces:
                 risk_factors.append("No faces detected")
-            if quality_metrics['is_blurry']:
+            if quality_metrics.get('is_blurry', False):
                 risk_factors.append("Image appears blurry")
-            if confidence < 0.7:
+            if detection_result['confidence'] < 0.7:
                 risk_factors.append("Low confidence prediction")
+            if compression_analysis.get('has_artifacts', False):
+                risk_factors.append("Compression artifacts detected")
             
             result['risk_factors'] = risk_factors
-            result['risk_level'] = 'HIGH' if len(risk_factors) >= 2 else 'MEDIUM' if len(risk_factors) == 1 else 'LOW'
+            
+            # Determine risk level
+            if len(risk_factors) >= 3 or detection_result['suspicion_score'] > 0.6:
+                result['risk_level'] = 'HIGH'
+            elif len(risk_factors) >= 1 or detection_result['suspicion_score'] > 0.3:
+                result['risk_level'] = 'MEDIUM'
+            else:
+                result['risk_level'] = 'LOW'
             
             return result
             
@@ -242,11 +256,11 @@ class DeepfakeDetectionService:
                 'prediction': 'ERROR',
                 'confidence': 0.0,
                 'error': str(e),
-                'model_used': self.model_type
+                'model_used': 'heuristic_cv'
             }
 
 # Initialize the detection service
-detector = DeepfakeDetectionService()
+detector = LightweightDeepfakeDetector()
 
 @app.before_request
 def handle_preflight():
@@ -261,9 +275,20 @@ def handle_preflight():
 @cross_origin()
 def home():
     return jsonify({
-        "message": "SheGuard Backend is running!",
-        "model_status": detector.model_type,
-        "version": "2.0"
+        "message": "SheGuard Lightweight Backend is running!",
+        "model_status": "heuristic_cv",
+        "version": "3.0-lightweight",
+        "memory_optimized": True
+    })
+
+@app.route('/health')
+@cross_origin()
+def health_check():
+    return jsonify({
+        "status": "healthy",
+        "model_type": "heuristic_cv",
+        "memory_usage": "optimized",
+        "face_detector": "loaded" if detector.face_cascade is not None else "failed"
     })
 
 @app.route('/upload', methods=['POST'])
@@ -325,15 +350,6 @@ def analyze():
             "details": str(e),
             "prediction": "ERROR"
         }), 500
-
-@app.route('/health', methods=['GET'])
-@cross_origin()
-def health_check():
-    return jsonify({
-        "status": "healthy",
-        "model_type": detector.model_type,
-        "device": str(detector.device)
-    })
 
 if __name__ == '__main__':
     port = int(os.environ.get("PORT", 5000))

@@ -226,6 +226,12 @@ function Upload() {
                   />
                 </Box>
 
+                {analysisResult.prediction === 'SUSPICIOUS' && (
+                  <Alert severity="warning" style={{ marginBottom: '15px' }}>
+                    This image shows suspicious characteristics that may indicate manipulation.
+                  </Alert>
+                )}
+
                 <Box style={{ marginBottom: '15px' }}>
                   <Typography variant="body2" style={{ color: '#b3b3b3', marginBottom: '5px' }}>
                     Risk Level:
@@ -246,6 +252,19 @@ function Upload() {
                   </Typography>
                 )}
 
+                {analysisResult.detection_reasons && analysisResult.detection_reasons.length > 0 && (
+                  <Box style={{ marginTop: '10px' }}>
+                    <Typography variant="body2" style={{ color: '#00ffcc', marginBottom: '5px' }}>
+                      🔍 Detection Analysis:
+                    </Typography>
+                    {analysisResult.detection_reasons.map((reason, index) => (
+                      <Typography key={index} variant="body2" style={{ color: '#b3b3b3', marginLeft: '10px' }}>
+                        • {reason}
+                      </Typography>
+                    ))}
+                  </Box>
+                )}
+
                 {analysisResult.risk_factors && analysisResult.risk_factors.length > 0 && (
                   <Box style={{ marginTop: '10px' }}>
                     <Typography variant="body2" style={{ color: '#ff9800', marginBottom: '5px' }}>
@@ -260,7 +279,7 @@ function Upload() {
                 )}
 
                 <Typography variant="caption" style={{ color: '#757575', marginTop: '10px', display: 'block' }}>
-                  Model: {analysisResult.model_used}
+                  Detection Method: {analysisResult.model_used} | Suspicion Score: {(analysisResult.suspicion_score * 100).toFixed(1)}%
                 </Typography>
               </Paper>
             </AnimatedBox>
