@@ -14,7 +14,7 @@ app = Flask(__name__)
 # Configure CORS properly
 CORS(app, resources={
     r"/*": {
-        "origins": ["*"],
+        "origins": ["http://localhost:3000", "https://sheguard-frontend.onrender.com"],
         "methods": ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
         "allow_headers": ["Content-Type", "Authorization"]
     }
