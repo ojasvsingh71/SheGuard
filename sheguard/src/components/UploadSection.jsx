@@ -323,12 +323,18 @@ const UploadSection = ({ onAnalysisResult, isAnalyzing, setIsAnalyzing }) => {
                       </div>
                       <div className="flex justify-between">
                         <span className="text-gray-600">Model Used:</span>
-                        <span className="font-medium">Advanced CV</span>
+                        <span className="font-medium">Enhanced Ensemble</span>
                       </div>
                       <div className="flex justify-between">
                         <span className="text-gray-600">Suspicion Score:</span>
                         <span className="font-medium">
                           {(result.suspicion_score * 100).toFixed(1)}%
+                        </span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-gray-600">Analysis Depth:</span>
+                        <span className="font-medium capitalize">
+                          {result.analysis_depth || 'Standard'}
                         </span>
                       </div>
                     </div>
@@ -355,8 +361,100 @@ const UploadSection = ({ onAnalysisResult, isAnalyzing, setIsAnalyzing }) => {
                   </div>
                 </div>
 
-                {/* Quality Metrics */}
-                {result.quality_metrics && (
+                {/* Enhanced Analysis Results */}
+                {result.quality_analysis && (
+                  <div className="mt-6 space-y-6">
+                    {/* Quality Metrics */}
+                    <div className="bg-gray-50 rounded-xl p-6">
+                      <h4 className="font-semibold text-gray-800 mb-4 flex items-center">
+                        <Zap className="h-5 w-5 mr-2" />
+                        Enhanced Quality Analysis
+                      </h4>
+                      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                        <div className="text-center">
+                          <p className="text-sm text-gray-600">Overall Quality</p>
+                          <p className="font-semibold">
+                            {(result.quality_analysis.overall_quality_score * 100)?.toFixed(1) || 'N/A'}%
+                          </p>
+                        </div>
+                        <div className="text-center">
+                          <p className="text-sm text-gray-600">Blur Score</p>
+                          <p className="font-semibold">
+                            {result.quality_analysis.blur_scores?.laplacian?.toFixed(1) || 'N/A'}
+                          </p>
+                        </div>
+                        <div className="text-center">
+                          <p className="text-sm text-gray-600">Noise Level</p>
+                          <p className="font-semibold">
+                            {result.quality_analysis.noise_level?.toFixed(1) || 'N/A'}
+                          </p>
+                        </div>
+                        <div className="text-center">
+                          <p className="text-sm text-gray-600">Edge Density</p>
+                          <p className="font-semibold">
+                            {(result.quality_analysis.edge_analysis?.edge_density * 100)?.toFixed(1) || 'N/A'}%
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Facial Analysis */}
+                    {result.facial_analysis && result.facial_analysis.face_count > 0 && (
+                      <div className="bg-gray-50 rounded-xl p-6">
+                        <h4 className="font-semibold text-gray-800 mb-4 flex items-center">
+                          <Eye className="h-5 w-5 mr-2" />
+                          Facial Analysis Details
+                        </h4>
+                        <div className="space-y-4">
+                          {result.facial_analysis.face_details?.map((face, index) => (
+                            <div key={index} className="border-l-4 border-indigo-500 pl-4">
+                              <h5 className="font-medium text-gray-700 mb-2">Face {index + 1}</h5>
+                              <div className="grid grid-cols-2 md:grid-cols-3 gap-3 text-sm">
+                                <div>
+                                  <span className="text-gray-600">Symmetry:</span>
+                                  <span className="ml-2 font-medium">
+                                    {(face.symmetry_score * 100)?.toFixed(1)}%
+                                  </span>
+                                </div>
+                                <div>
+                                  <span className="text-gray-600">Eyes:</span>
+                                  <span className="ml-2 font-medium">{face.eye_count}</span>
+                                </div>
+                                <div>
+                                  <span className="text-gray-600">Texture Quality:</span>
+                                  <span className="ml-2 font-medium">
+                                    {face.texture_analysis?.is_overly_smooth ? 'Suspicious' : 'Normal'}
+                                  </span>
+                                </div>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Detailed Detection Reasons */}
+                    {result.detection_reasons && result.detection_reasons.length > 0 && (
+                      <div className="bg-gray-50 rounded-xl p-6">
+                        <h4 className="font-semibold text-gray-800 mb-4 flex items-center">
+                          <AlertCircle className="h-5 w-5 mr-2" />
+                          Detailed Analysis Findings
+                        </h4>
+                        <div className="space-y-2">
+                          {result.detection_reasons.map((reason, index) => (
+                            <div key={index} className="flex items-start space-x-2">
+                              <div className="w-1.5 h-1.5 bg-blue-500 rounded-full mt-2 flex-shrink-0"></div>
+                              <span className="text-sm text-gray-700">{reason}</span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* Legacy Quality Metrics (fallback) */}
+                {result.quality_metrics && !result.quality_analysis && (
                   <div className="mt-6 bg-gray-50 rounded-xl p-6">
                     <h4 className="font-semibold text-gray-800 mb-4 flex items-center">
                       <Zap className="h-5 w-5 mr-2" />
