@@ -51,6 +51,10 @@ python app.py
 
 ### Frontend Setup
 ```bash
+# Navigate back to project root (if coming from backend setup)
+cd ..
+
+# Navigate to frontend directory
 cd sheguard
 
 # Install dependencies
