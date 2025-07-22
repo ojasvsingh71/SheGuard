@@ -11,7 +11,7 @@ const UploadSection = ({ onAnalysisResult, isAnalyzing, setIsAnalyzing }) => {
   const [error, setError] = useState(null);
   const fileInputRef = useRef(null);
 
-  const API_BASE_URL = 'https://sheguard-backend.onrender.com';
+  const API_BASE_URL = 'http://127.0.0.1:5000';
 
   const handleDragOver = (e) => {
     e.preventDefault();

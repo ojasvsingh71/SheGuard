@@ -332,7 +332,7 @@ def analyze():
     logger.info(f"Analyzing file: {file_path}")
     
     try:
-        result = detector.analyze_image(file_path)
+        result = convert_numpy_types(detector.analyze_image(file_path))
         logger.info(f"Analysis complete: {result['prediction']} (confidence: {result.get('confidence', 0):.2f})")
         return jsonify(result)
         
@@ -343,6 +343,24 @@ def analyze():
             "details": str(e),
             "prediction": "ERROR"
         }), 500
+    
+def convert_numpy_types(obj):
+    """
+    Recursively convert numpy data types to native Python types.
+    """
+    if isinstance(obj, dict):
+        return {k: convert_numpy_types(v) for k, v in obj.items()}
+    elif isinstance(obj, list):
+        return [convert_numpy_types(v) for v in obj]
+    elif isinstance(obj, (np.integer, np.int_)):
+        return int(obj)
+    elif isinstance(obj, (np.floating, np.float_)):
+        return float(obj)
+    elif isinstance(obj, (np.bool_, bool)):
+        return bool(obj)
+    else:
+        return obj
+
 
 if __name__ == '__main__':
     port = int(os.environ.get("PORT", 5000))
