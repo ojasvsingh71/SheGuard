@@ -12,13 +12,11 @@ import io
 app = Flask(__name__)
 
 # Configure CORS properly
-CORS(app, resources={
-    r"/*": {
-        "origins": ["http://localhost:3000", "https://sheguard-frontend.onrender.com"],
-        "methods": ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-        "allow_headers": ["Content-Type", "Authorization"]
-    }
-})
+CORS(app, 
+     origins=["http://localhost:3000", "https://sheguard-frontend.onrender.com", "*"],
+     methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+     allow_headers=["Content-Type", "Authorization", "Access-Control-Allow-Origin"],
+     supports_credentials=True)
 
 UPLOAD_FOLDER = 'uploads'
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
@@ -262,17 +260,15 @@ class LightweightDeepfakeDetector:
 # Initialize the detection service
 detector = LightweightDeepfakeDetector()
 
-@app.before_request
-def handle_preflight():
-    if request.method == "OPTIONS":
-        response = make_response()
-        response.headers.add("Access-Control-Allow-Origin", "*")
-        response.headers.add('Access-Control-Allow-Headers', "*")
-        response.headers.add('Access-Control-Allow-Methods', "*")
-        return response
+@app.after_request
+def after_request(response):
+    response.headers.add('Access-Control-Allow-Origin', '*')
+    response.headers.add('Access-Control-Allow-Headers', 'Content-Type,Authorization,Access-Control-Allow-Origin')
+    response.headers.add('Access-Control-Allow-Methods', 'GET,PUT,POST,DELETE,OPTIONS')
+    response.headers.add('Access-Control-Allow-Credentials', 'true')
+    return response
 
 @app.route('/')
-@cross_origin()
 def home():
     return jsonify({
         "message": "SheGuard Lightweight Backend is running!",
@@ -282,7 +278,6 @@ def home():
     })
 
 @app.route('/health')
-@cross_origin()
 def health_check():
     return jsonify({
         "status": "healthy",
@@ -292,7 +287,6 @@ def health_check():
     })
 
 @app.route('/upload', methods=['POST'])
-@cross_origin()
 def upload_file():
     if 'file' not in request.files:
         logger.error("No file part in the request.")
@@ -325,7 +319,6 @@ def upload_file():
         return jsonify({"error": "Failed to save file"}), 500
 
 @app.route('/analyze', methods=['POST'])
-@cross_origin()
 def analyze():
     file_path = request.json.get('file_path')
     if not file_path:
