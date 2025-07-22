@@ -51,7 +51,7 @@ python app.py
 
 ### Frontend Setup
 ```bash
-cd frontend/sheguard-frontend
+cd sheguard
 
 # Install dependencies
 npm install
