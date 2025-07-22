@@ -89,13 +89,12 @@ const Footer = () => {
         <div className="border-t border-white/10 pt-8">
           <div className="flex flex-col md:flex-row justify-between items-center space-y-4 md:space-y-0">
             <p className="text-white/60 text-sm">
-              © 2024 SheGuard. All rights reserved. Built with ❤️ for digital safety.
+              © 2025 SheGuard. All rights reserved. Built with ❤️ for digital safety.
             </p>
             
             <div className="flex items-center space-x-6 text-sm text-white/60">
-              <span>Made by Ojas Singh</span>
+              <span>Made by Idea Forgers</span>
               <span>•</span>
-              <span>Powered by AI</span>
             </div>
           </div>
         </div>
