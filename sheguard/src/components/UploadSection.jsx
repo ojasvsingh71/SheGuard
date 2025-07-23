@@ -1,7 +1,8 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { Upload, Image, AlertCircle, CheckCircle, XCircle, Eye, Shield, Zap } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import axios from 'axios';
+import { useMemo } from 'react';
 
 const UploadSection = ({ onAnalysisResult, isAnalyzing, setIsAnalyzing }) => {
   const [dragOver, setDragOver] = useState(false);
@@ -11,7 +12,31 @@ const UploadSection = ({ onAnalysisResult, isAnalyzing, setIsAnalyzing }) => {
   const [error, setError] = useState(null);
   const fileInputRef = useRef(null);
 
-  const API_BASE_URL = 'https://sheguard.onrender.com' || 'http://127.0.0.1:5000';
+  useEffect(() => {
+    console.log("✅ Rendered with result:", result);
+  }, [result]);
+
+
+  const API_BASE_URL = 'http://127.0.0.1:5000' || 'https://sheguard.onrender.com';
+
+
+  const suspicionScore = useMemo(() => {
+    // Use the backend-provided score if it exists
+    if (result?.suspicion_score !== undefined) {
+      return result.suspicion_score;
+    }
+
+    // Otherwise, fall back to calculating it manually
+    if (
+      result?.analysis_summary?.high_risk_indicators !== undefined &&
+      result?.analysis_summary?.total_indicators > 0
+    ) {
+      return result.analysis_summary.high_risk_indicators / result.analysis_summary.total_indicators;
+    }
+
+    return undefined;
+  }, [result]);
+
 
   const handleDragOver = (e) => {
     e.preventDefault();
@@ -88,13 +113,20 @@ const UploadSection = ({ onAnalysisResult, isAnalyzing, setIsAnalyzing }) => {
         timeout: 30000,
       });
 
-      setResult(analyzeResponse.data);
-      onAnalysisResult(analyzeResponse.data);
+      setResult(analyzeResponse.data); // ✅ triggers rerender
+      // onAnalysisResult(analyzeResponse.data);
+
+      console.log("Analyze Result:", analyzeResponse.data); // ✅ correct!
+      console.log("Final analyze result:", analyzeResponse.data); // ✅ correct!
+
+
+
+
     } catch (err) {
       console.error('Analysis error:', err);
       setError(
-        err.response?.data?.error || 
-        err.message || 
+        err.response?.data?.error ||
+        err.message ||
         'Failed to analyze image. Please try again.'
       );
     } finally {
@@ -149,11 +181,10 @@ const UploadSection = ({ onAnalysisResult, isAnalyzing, setIsAnalyzing }) => {
       <div className="glass-effect rounded-3xl p-8 shadow-2xl">
         {!selectedFile ? (
           <motion.div
-            className={`upload-area border-2 border-dashed rounded-2xl p-12 text-center transition-all duration-300 ${
-              dragOver 
-                ? 'border-white/50 bg-white/10' 
-                : 'border-white/30 hover:border-white/50 hover:bg-white/5'
-            }`}
+            className={`upload-area border-2 border-dashed rounded-2xl p-12 text-center transition-all duration-300 ${dragOver
+              ? 'border-white/50 bg-white/10'
+              : 'border-white/30 hover:border-white/50 hover:bg-white/5'
+              }`}
             onDragOver={handleDragOver}
             onDragLeave={handleDragLeave}
             onDrop={handleDrop}
@@ -164,7 +195,7 @@ const UploadSection = ({ onAnalysisResult, isAnalyzing, setIsAnalyzing }) => {
               <div className="bg-white/10 rounded-full p-6">
                 <Upload className="h-12 w-12 text-white" />
               </div>
-              
+
               <div>
                 <h3 className="text-2xl font-semibold text-white mb-2">
                   Drop your image here
@@ -172,7 +203,7 @@ const UploadSection = ({ onAnalysisResult, isAnalyzing, setIsAnalyzing }) => {
                 <p className="text-white/70 mb-6">
                   or click to browse files
                 </p>
-                
+
                 <motion.button
                   whileHover={{ scale: 1.05 }}
                   whileTap={{ scale: 0.95 }}
@@ -183,12 +214,12 @@ const UploadSection = ({ onAnalysisResult, isAnalyzing, setIsAnalyzing }) => {
                   <span>Choose File</span>
                 </motion.button>
               </div>
-              
+
               <p className="text-sm text-white/60">
                 Supports JPEG, PNG, GIF, BMP, WebP • Max size: 10MB
               </p>
             </div>
-            
+
             <input
               ref={fileInputRef}
               type="file"
@@ -283,20 +314,22 @@ const UploadSection = ({ onAnalysisResult, isAnalyzing, setIsAnalyzing }) => {
                   <div className="flex items-center justify-center space-x-3 mb-4">
                     {getPredictionIcon(result.prediction)}
                     <h3 className="text-3xl font-bold text-gray-800">
-                      {result.prediction === 'REAL' ? 'Authentic Image' : 
-                       result.prediction === 'FAKE' ? 'Deepfake Detected' : 
-                       'Suspicious Content'}
+                      {typeof result.prediction === 'string' && result.prediction.toLowerCase() === 'real' ? 'Authentic Image'
+                        : result.prediction?.toLowerCase() === 'fake' ? 'Deepfake Detected'
+                          : 'Suspicious Content'}
                     </h3>
                   </div>
-                  
+
                   <div className="flex items-center justify-center space-x-4 mb-6">
                     <div className="text-center">
                       <p className="text-sm text-gray-600 mb-1">Confidence</p>
                       <p className="text-2xl font-bold text-indigo-600">
-                        {(result.confidence * 100).toFixed(1)}%
+                        {result.confidence !== undefined
+                          ? (result.confidence * 100).toFixed(1) + '%'
+                          : 'N/A'}
                       </p>
                     </div>
-                    
+
                     {result.risk_level && (
                       <div className="text-center">
                         <p className="text-sm text-gray-600 mb-1">Risk Level</p>
@@ -319,7 +352,7 @@ const UploadSection = ({ onAnalysisResult, isAnalyzing, setIsAnalyzing }) => {
                     <div className="space-y-3">
                       <div className="flex justify-between">
                         <span className="text-gray-600">Faces Detected:</span>
-                        <span className="font-medium">{result.face_count || 0}</span>
+                        <span className="font-medium">{result.facial_analysis?.face_count || 0}</span>
                       </div>
                       <div className="flex justify-between">
                         <span className="text-gray-600">Model Used:</span>
@@ -328,7 +361,7 @@ const UploadSection = ({ onAnalysisResult, isAnalyzing, setIsAnalyzing }) => {
                       <div className="flex justify-between">
                         <span className="text-gray-600">Suspicion Score:</span>
                         <span className="font-medium">
-                          {(result.suspicion_score * 100).toFixed(1)}%
+                          {suspicionScore !== undefined ? (suspicionScore * 100).toFixed(1) + '%' : 'N/A'}
                         </span>
                       </div>
                       <div className="flex justify-between">
@@ -347,15 +380,17 @@ const UploadSection = ({ onAnalysisResult, isAnalyzing, setIsAnalyzing }) => {
                       Risk Factors
                     </h4>
                     <div className="space-y-2">
-                      {result.risk_factors && result.risk_factors.length > 0 ? (
-                        result.risk_factors.map((factor, index) => (
-                          <div key={index} className="flex items-center space-x-2">
-                            <div className="w-2 h-2 bg-yellow-500 rounded-full"></div>
-                            <span className="text-sm text-gray-700">{factor}</span>
-                          </div>
-                        ))
-                      ) : (
-                        <p className="text-sm text-gray-600">No significant risk factors detected</p>
+                      {(
+                        [...(result.analysis_summary?.primary_concerns || []), ...(result.analysis_summary?.secondary_concerns || [])].length > 0
+                          ? [...(result.analysis_summary?.primary_concerns || []), ...(result.analysis_summary?.secondary_concerns || [])].map((factor, index) => (
+                            <div key={index} className="flex items-center space-x-2">
+                              <div className="w-2 h-2 bg-yellow-500 rounded-full"></div>
+                              <span className="text-sm text-gray-700">{factor}</span>
+                            </div>
+                          ))
+                          : (
+                            <p className="text-sm text-gray-600">No significant risk factors detected</p>
+                          )
                       )}
                     </div>
                   </div>

@@ -149,9 +149,6 @@ def analyze():
         }), 500
     
 def convert_numpy_types(obj):
-    """
-    Recursively convert numpy data types to native Python types.
-    """
     if isinstance(obj, dict):
         return {k: convert_numpy_types(v) for k, v in obj.items()}
     elif isinstance(obj, list):
@@ -161,7 +158,9 @@ def convert_numpy_types(obj):
     elif isinstance(obj, (np.floating, np.float_)):
         return float(obj)
     elif isinstance(obj, (np.bool_, bool)):
-        return bool(obj)
+        return bool(obj)  # Keep as boolean for React
+    elif isinstance(obj, str):
+        return obj.lower()  # Normalize all strings like "REAL" → "real"
     else:
         return obj
 
